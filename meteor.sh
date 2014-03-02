@@ -6,9 +6,10 @@ APP_HOST=example.com
 # Uncomment this if your host is an EC2 instance
 # EC2_PEM_FILE=path/to/your/file.pem
 
-# You usually don't need to change anything below this line
-
 APP_NAME=meteorapp
+
+# You usually don't need to change anything below this line
+NODE_ENV=production
 ROOT_URL=http://$APP_HOST
 PORT=80
 APP_DIR=/var/www/$APP_NAME
@@ -43,7 +44,7 @@ echo Deploying...
 $METEOR_CMD bundle bundle.tgz > /dev/null 2>&1 &&
 scp $SSH_OPT bundle.tgz $SSH_HOST:/tmp/ > /dev/null 2>&1 &&
 rm bundle.tgz > /dev/null 2>&1 &&
-ssh $SSH_OPT $SSH_HOST PORT=$PORT MONGO_URL=$MONGO_URL ROOT_URL=$ROOT_URL APP_DIR=$APP_DIR 'sudo -E bash -s' > /dev/null 2>&1 <<'ENDSSH'
+ssh $SSH_OPT $SSH_HOST NODE_ENV=$NODE_ENV PORT=$PORT MONGO_URL=$MONGO_URL ROOT_URL=$ROOT_URL APP_DIR=$APP_DIR 'sudo -E bash -s' > /dev/null 2>&1 <<'ENDSSH'
 if [ ! -d "$APP_DIR" ]; then
 mkdir -p $APP_DIR
 chown -R www-data:www-data $APP_DIR
