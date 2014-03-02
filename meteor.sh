@@ -1,24 +1,15 @@
-#!/bin/bash
-
-# IP or URL of the server you want to deploy to
-APP_HOST=example.com
-
-# Uncomment this if your host is an EC2 instance
-# EC2_PEM_FILE=path/to/your/file.pem
-
-APP_NAME=meteorapp
+#!/bin/bash -e
+#
+[ -z "$APP_HOST" ] && { echo "Need to set APP_HOST"; exit 1; }
+[ -z "$APP_NAME" ] && { echo "Need to set APP_NAME"; exit 1; }
+[ -z "$PORT" ] && { echo "Need to set PORT"; exit 1; }
 
 # You usually don't need to change anything below this line
 NODE_ENV=production
 ROOT_URL=http://$APP_HOST
-PORT=80
-APP_DIR=/var/www/$APP_NAME
+APP_DIR="~/$APP_NAME"
 MONGO_URL=mongodb://localhost:27017/$APP_NAME
-if [ -z "$EC2_PEM_FILE" ]; then
-    SSH_HOST="root@$APP_HOST" SSH_OPT=""
-  else
-    SSH_HOST="ubuntu@$APP_HOST" SSH_OPT="-i $EC2_PEM_FILE"
-fi
+SSH_HOST=$APP_HOST SSH_OPT=""
 if [ -d ".meteor/meteorite" ]; then
     METEOR_CMD=mrt
   else
@@ -26,31 +17,17 @@ if [ -d ".meteor/meteorite" ]; then
 fi
 
 case "$1" in
-setup )
-echo Preparing the server...
-echo Get some coffee, this will take a while.
-ssh $SSH_OPT $SSH_HOST DEBIAN_FRONTEND=noninteractive 'sudo -E bash -s' > /dev/null 2>&1 <<'ENDSSH'
-apt-get update
-apt-get install -y python-software-properties
-add-apt-repository ppa:chris-lea/node.js
-apt-get update
-apt-get install -y build-essential nodejs mongodb
-npm install -g forever
-ENDSSH
-echo Done. You can now deploy your app.
-;;
 deploy )
 echo Deploying...
-$METEOR_CMD bundle bundle.tgz > /dev/null 2>&1 &&
-scp $SSH_OPT bundle.tgz $SSH_HOST:/tmp/ > /dev/null 2>&1 &&
-rm bundle.tgz > /dev/null 2>&1 &&
-ssh $SSH_OPT $SSH_HOST NODE_ENV=$NODE_ENV PORT=$PORT MONGO_URL=$MONGO_URL ROOT_URL=$ROOT_URL APP_DIR=$APP_DIR 'sudo -E bash -s' > /dev/null 2>&1 <<'ENDSSH'
+$METEOR_CMD bundle bundle.tgz
+scp $SSH_OPT bundle.tgz $SSH_HOST:/tmp/
+rm bundle.tgz
+ssh $SSH_OPT $SSH_HOST NODE_ENV=$NODE_ENV PORT=$PORT MONGO_URL=$MONGO_URL ROOT_URL=$ROOT_URL APP_DIR=$APP_DIR 'bash -s' <<'ENDSSH'
 if [ ! -d "$APP_DIR" ]; then
 mkdir -p $APP_DIR
-chown -R www-data:www-data $APP_DIR
 fi
+forever stop $APP_DIR/bundle/main.js
 pushd $APP_DIR
-forever stop bundle/main.js
 rm -rf bundle
 tar xfz /tmp/bundle.tgz -C $APP_DIR
 rm /tmp/bundle.tgz
@@ -58,22 +35,17 @@ pushd bundle/programs/server/node_modules
 rm -rf fibers
 npm install fibers@1.0.1
 popd
-chown -R www-data:www-data bundle
-patch -u bundle/programs/server/packages/webapp.js <<'ENDPATCH'
-@@ -447,6 +447,8 @@ var runWebAppServer = function () {
-     httpServer.listen(localPort, localIp, Meteor.bindEnvironment(function() {                              // 428
-       if (argv.keepalive || true)                                                                          // 429
-         console.log("LISTENING"); // must match run.js                                                     // 430
-+      process.setgid('www-data');
-+      process.setuid('www-data');
-       var port = httpServer.address().port;                                                                // 431
-       var proxyBinding;                                                                                    // 432
-                                                                                                            // 433
-ENDPATCH
-forever start bundle/main.js
 popd
+forever start $APP_DIR/bundle/main.js
 ENDSSH
 echo Your app is deployed and serving on: $ROOT_URL
+;;
+restart )
+echo Restarting...
+ssh $SSH_OPT $SSH_HOST NODE_ENV=$NODE_ENV PORT=$PORT MONGO_URL=$MONGO_URL ROOT_URL=$ROOT_URL APP_DIR=$APP_DIR 'bash -s' <<'ENDSSH'
+forever stop $APP_DIR/bundle/main.js
+forever start $APP_DIR/bundle/main.js
+ENDSSH
 ;;
 * )
 cat <<'ENDCAT'
@@ -81,8 +53,8 @@ cat <<'ENDCAT'
 
 Available actions:
 
-  setup   - Install a meteor environment on a fresh Ubuntu server
-  deploy  - Deploy the app to the server
+  deploy - Deploy the app to the server
+  restart - Restart the app on the server
 ENDCAT
 ;;
 esac
