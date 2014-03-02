@@ -6,7 +6,7 @@
 
 # You usually don't need to change anything below this line
 NODE_ENV=production
-ROOT_URL=http://$APP_HOST
+ROOT_URL=http://$APP_HOST:$PORT
 APP_DIR="~/$APP_NAME"
 MONGO_URL=mongodb://localhost:27017/$APP_NAME
 SSH_HOST=$APP_HOST SSH_OPT=""
