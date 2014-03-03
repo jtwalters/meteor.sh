@@ -22,11 +22,11 @@ echo Deploying...
 $METEOR_CMD bundle bundle.tgz
 scp $SSH_OPT bundle.tgz $SSH_HOST:/tmp/
 rm bundle.tgz
-ssh $SSH_OPT $SSH_HOST NODE_ENV=$NODE_ENV PORT=$PORT MONGO_URL=$MONGO_URL ROOT_URL=$ROOT_URL APP_DIR=$APP_DIR 'bash -s' <<'ENDSSH'
+ssh $SSH_OPT $SSH_HOST APP_NAME=$APP_NAME NODE_ENV=$NODE_ENV PORT=$PORT MONGO_URL=$MONGO_URL ROOT_URL=$ROOT_URL APP_DIR=$APP_DIR 'bash -s' <<'ENDSSH'
 if [ ! -d "$APP_DIR" ]; then
 mkdir -p $APP_DIR
 fi
-forever stop $APP_DIR/bundle/main.js
+pm2 stop $APP_NAME
 pushd $APP_DIR
 rm -rf bundle
 tar xfz /tmp/bundle.tgz -C $APP_DIR
@@ -36,15 +36,14 @@ rm -rf fibers
 npm install fibers@1.0.1
 popd
 popd
-forever start $APP_DIR/bundle/main.js
+pm2 start -x $APP_DIR/bundle/main.js
 ENDSSH
 echo Your app is deployed and serving on: $ROOT_URL
 ;;
 restart )
 echo Restarting...
-ssh $SSH_OPT $SSH_HOST NODE_ENV=$NODE_ENV PORT=$PORT MONGO_URL=$MONGO_URL ROOT_URL=$ROOT_URL APP_DIR=$APP_DIR 'bash -s' <<'ENDSSH'
-forever stop $APP_DIR/bundle/main.js
-forever start $APP_DIR/bundle/main.js
+ssh $SSH_OPT $SSH_HOST APP_NAME=$APP_NAME NODE_ENV=$NODE_ENV PORT=$PORT MONGO_URL=$MONGO_URL ROOT_URL=$ROOT_URL APP_DIR=$APP_DIR 'bash -s' <<'ENDSSH'
+pm2 restart $APP_NAME
 ENDSSH
 ;;
 * )
